@@ -1,3 +1,262 @@
+/***********************************************************************************
+********************************** Priority Queue **********************************
+************************************************************************************/
+
+let swap = (array, index1, index2) => {
+  if (array !== undefined && index1 !== undefined && index2 !== undefined) {
+    let tmp = array[index1];
+    array[index1] = array[index2];
+    array[index2] = tmp;
+  }
+}
+
+/**Priority queue
+ * Heap-based priority queue that can take in any object containing a generic compare()
+ * function to compare priorities of objects within the queue. By default, the "lower"-
+ * valued object has higher priority.
+ */
+class PriorityQueue {
+  // TODO: implement reverseOrder
+  // By default, "lowest" value of objects are highest prioritiy.
+  constructor(reverseOrder = false) {
+    this.heap = [];
+    this.reverseOrder = reverseOrder;
+  }
+
+  isEmpty() {
+    return (this.heap.length == 0);
+  }
+
+  getSize() {
+    return this.heap.length;
+  }
+
+  contains(node) {
+    let containsNode = false;
+    for (let indexNode of this.heap) {
+      if (node === indexNode) {
+        containsNode = true;
+        break;
+      }
+    }
+    return containsNode;
+  }
+
+  enqueue(node) {
+    this.heap.push(node);
+    let currentIndex = this.heap.length - 1;
+    let parentIndex = parseInt((currentIndex) / 2);
+    while ((this.heap[currentIndex].compare(this.heap[parentIndex]) < 0) && (currentIndex !== 0)) {
+      swap(this.heap, currentIndex, parentIndex);
+      currentIndex = parentIndex;
+      parentIndex = parseInt((currentIndex) / 2);
+    }
+  }
+
+  dequeue() {
+    swap(this.heap, 0, this.heap.length - 1);
+    let dequeued_node = this.heap.pop();
+
+    if (this.heap.length > 1) {
+      let currentIndex = 0;
+      let swapIndex = currentIndex;
+      let child0Index = currentIndex * 2;
+      let child1Index = child0Index + 1;
+      let continueLoop = true;
+      while (continueLoop) {
+        if (child0Index < this.heap.length) {
+          if (this.heap[swapIndex].compare(this.heap[child0Index]) > 0) {
+            swapIndex = child0Index;
+          }
+        }
+
+        if (child1Index < this.heap.length) {
+          if (this.heap[swapIndex].compare(this.heap[child1Index]) > 0) {
+            swapIndex = child1Index;
+          }
+        }
+
+        continueLoop = (swapIndex !== currentIndex);
+        swap(this.heap, currentIndex, swapIndex);
+        currentIndex = swapIndex;
+        child0Index = currentIndex * 2;
+        child1Index = child0Index + 1;
+      }
+    }
+    return dequeued_node;
+  }
+};
+
+/************************************************************************************
+******************************** A* Search Algorithm ********************************
+*************************************************************************************/
+
+let getDistance = (node1, node2) => {
+  let distance = Infinity;
+  if (node1 !== undefined && node2 !== undefined) {
+    let diffX = (node2.x - node1.x);
+    let diffY = (node2.y - node1.y);
+    distance = Math.sqrt((diffX*diffX) + (diffY*diffY));
+  }
+  return distance;
+}
+
+class Graph {
+  constructor() {
+    this.gScore = {};
+    this.fScore = {};
+    this.nodes = {};
+    this.nodeCounter = 0;
+  }
+
+  // Create and add node to graph. Each node is given a unique ID for this graph.
+  createAndAddNode(x, y, id) {
+    let newId;
+    if (id !== undefined) {
+      newId = id;
+    } else {
+      while(Object.keys(this.nodes).includes("" + this.nodeCounter)) {
+        this.nodeCounter += 1;
+      }
+      newId = this.nodeCounter;
+    }
+
+    if (Object.keys(this.nodes).includes("" + newId)) {
+      console.log("Warning: Graph node ID has been overwritten");
+    }
+    let newNode = new Node(newId, x, y, this.gScore, this.fScore);
+    this.nodes[newId] = newNode;
+
+    return newNode;
+  }
+
+  connectNodesById(nodeId1, nodeId2) {
+    this.nodes[nodeId1].addNeighbour(this.nodes[nodeId2]);
+    this.nodes[nodeId2].addNeighbour(this.nodes[nodeId1]);
+  }
+
+  connectNodes(node1, node2) {
+    node1.addNeighbour(node2);
+    node2.addNeighbour(node1);
+  }
+
+  /**Get the shortest path of nodes from startNode to destination Node.
+   * Apply the A* search algorithm to find the shortest path from the starting node to the destination node.
+   * @return [] - An array of nodes indicating the shortest path from startNode to destinationNode.
+   */
+  getShortestPath(startNode, destinationNode) {
+    // console.log("startNode: " + startNode.id + " | destinationNode: " + destinationNode.id);
+    let nodeQueue = new PriorityQueue();
+    nodeQueue.enqueue(startNode);
+
+    let cameFrom = {};
+
+    for (let id of Object.keys(this.nodes)) {
+      this.gScore[id] = Infinity;
+      this.fScore[id] = Infinity;
+    }
+
+    this.gScore[startNode.id] = 0;
+    this.fScore[startNode.id] = this.heuristic(startNode, destinationNode);
+
+    while (!nodeQueue.isEmpty()) {
+      let current = nodeQueue.dequeue();
+      if (current.id === destinationNode.id) {
+        return this.reconstructPath(cameFrom, current);
+      }
+
+      for (let neighbourId of Object.keys(current.neighbourDistances)) {
+        let neighbour = this.nodes[neighbourId];
+
+        let tentativeGScore = this.gScore[current.id] + current.neighbourDistances[neighbour.id];
+        if (tentativeGScore < this.gScore[neighbour.id]) {
+          cameFrom[neighbour.id] = current;
+          this.gScore[neighbour.id] = tentativeGScore;
+          this.fScore[neighbour.id] = this.gScore[neighbour.id] + this.heuristic(neighbour, destinationNode);
+          if (!nodeQueue.contains(neighbour)) {
+            nodeQueue.enqueue(neighbour);
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
+  // Get the heuristic value from currentNode to destinationNode.
+  heuristic(currentNode, destinationNode) {
+    return getDistance(currentNode, destinationNode);
+  }
+
+  /**Reconstruct the shortest path of nodes determined by the A* search algorithm.
+   * @return [] - An array of nodes indicating the shortest path from a start node to a destination node.
+   */
+  reconstructPath(cameFrom, current) {
+    let totalPath = [current];
+    while (Object.keys(cameFrom).includes("" + current.id)) {
+      current = cameFrom[current.id];
+      totalPath.unshift(current);
+    }
+    return totalPath;
+  }
+};
+
+/** Node
+ * Node point in a Cartesian coordinate system. Generally created by and associated with a Graph
+ * for performing a shortest path search between two nodes.
+ */
+class Node {
+  constructor(id, x, y, fScore) {
+    this.id = id;
+    this.x = x;
+    this.y = y;
+    this.fScore = fScore;
+    this.neighbourDistances = {};
+  }
+
+  // Add a node as a neighbour (i.e. adjacent).
+  addNeighbour(node) {
+    let distance = getDistance(this, node);
+    this.neighbourDistances[node.id] = distance;
+  }
+
+  /**Compare with another Node.
+   * NOTE: TO BE USED DURING AN A* SEARCH ONLY.
+   * Compares the f() value of two nodes with respect to a destination node.
+   * f() = g() + h(), where g() is the cumulative distance traveled from the
+   * start node, and h() is the heuristic for reaching the destination node.
+   */
+  compare(node) {
+    let returnValue = -2;
+    if (node !== undefined) {
+      if (this.fScore[this.id] > node.fScore[node.id]) {
+        returnValue = 1;
+      } else if (this.fScore[this.id] === node.fScore[node.id]) {
+        returnValue = 0;
+      } else {
+        returnValue = -1;
+      }
+    }
+    return returnValue;
+  }
+
+  toString() {
+    let nodeInfo = `${this.id}: [${this.x}, ${this.y}] -`;
+    for (let neighbourId of Object.keys(this.neighbourDistances)) {
+      nodeInfo += "\n  " + neighbourId + ": " + this.neighbourDistances[neighbourId] + " m";
+    }
+    return nodeInfo;
+  }
+};
+
+
+
+
+
+
+
+
+
+
 //加载场景代码
 var app = new THING.App({
     // 场景地址
@@ -57,7 +316,7 @@ app.on('load', function (ev) {
             }
         }
     });
-    app.camera.enablePan 
+    app.camera.enablePan
     // app.camera.enableRotate = false;
     initLeveLis();
     addThings();
@@ -153,7 +412,7 @@ function addThings() {
     //     loopType: THING.LoopType.PingPong // 循环类型 设置循环后 无回调函数
     // })
     thiz.draggable = true;
-    // 拖拽结束 
+    // 拖拽结束
     thiz.on('dragend', function (ev) {
         app.camera.fit({
             object: thiz,
@@ -164,7 +423,7 @@ function addThings() {
         getPanl(thiz.position[0], thiz.position[2]);
     });
 
-    // 拖拽中 
+    // 拖拽中
     thiz.on('drag', function (ev) {
         /* drag的两个参数:
             ev.object	        当前拾取物体,类型:BaseObject
@@ -341,3 +600,4 @@ function initLeveLis() {
 //     })
 //     app.addControl(ctrl);
 // }
+
