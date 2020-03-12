@@ -101,7 +101,7 @@ let getDistance = (node1, node2) => {
   return distance;
 }
 
-class Graph {
+class AStarGraph {
   constructor() {
     this.gScore = {};
     this.fScore = {};
@@ -122,25 +122,28 @@ class Graph {
     }
 
     if (Object.keys(this.nodes).includes("" + newId)) {
-      console.log("Warning: Graph node ID has been overwritten");
+      console.log("Warning: AStarGraph node ID has been overwritten");
     }
-    let newNode = new Node(newId, x, y, this.gScore, this.fScore);
+    let newNode = new GraphNode(newId, x, y, this.gScore, this.fScore);
     this.nodes[newId] = newNode;
 
     return newNode;
   }
 
   connectNodesById(nodeId1, nodeId2) {
-    this.nodes[nodeId1].addNeighbour(this.nodes[nodeId2]);
-    this.nodes[nodeId2].addNeighbour(this.nodes[nodeId1]);
+      this.connectNodes(this.nodes[nodeId1], this.nodes[nodeId2]);
   }
 
   connectNodes(node1, node2) {
-    node1.addNeighbour(node2);
-    node2.addNeighbour(node1);
+    if (node1 !== undefined && node2 !== undefined) {
+        node1.addNeighbour(node2);
+        node2.addNeighbour(node1);
+    } else {
+        console.log("Warning: Attempted to connect undefined nodes!");
+    }
   }
 
-  /**Get the shortest path of nodes from startNode to destination Node.
+  /**Get the shortest path of nodes from startNode to destinationNode.
    * Apply the A* search algorithm to find the shortest path from the starting node to the destination node.
    * @return [] - An array of nodes indicating the shortest path from startNode to destinationNode.
    */
@@ -198,13 +201,30 @@ class Graph {
     }
     return totalPath;
   }
+
+  getClosestNode(x, y) {
+      let node = {x : x, y : y};
+      console.log("node: ", node);
+      let shortestDistance = Infinity;
+      let closestNodeId;
+      let distance;
+      for (let id of Object.keys(this.nodes)) {
+        distance = getDistance(node, this.nodes[id]);
+        console.log("distance: ", distance);
+        if (distance < shortestDistance) {
+            closestNodeId = id;
+            shortestDistance = distance;
+        }
+      }
+      return this.nodes[closestNodeId];
+  }
 };
 
-/** Node
- * Node point in a Cartesian coordinate system. Generally created by and associated with a Graph
+/**GraphNode
+ * GraphNode point in a Cartesian coordinate system. Generally created by and associated with a AStarGraph
  * for performing a shortest path search between two nodes.
  */
-class Node {
+class GraphNode {
   constructor(id, x, y, fScore) {
     this.id = id;
     this.x = x;
@@ -219,7 +239,7 @@ class Node {
     this.neighbourDistances[node.id] = distance;
   }
 
-  /**Compare with another Node.
+  /**Compare with another GraphNode.
    * NOTE: TO BE USED DURING AN A* SEARCH ONLY.
    * Compares the f() value of two nodes with respect to a destination node.
    * f() = g() + h(), where g() is the cumulative distance traveled from the
@@ -248,6 +268,7 @@ class Node {
   }
 };
 
+var gMapGraph = new AStarGraph();
 
 
 
@@ -255,7 +276,9 @@ class Node {
 
 
 
-
+/***********************************************************************************
+******************************** Map Initialization ********************************
+************************************************************************************/
 
 //加载场景代码
 var app = new THING.App({
@@ -299,9 +322,9 @@ app.on('load', function (ev) {
     app.on('mousedown', function (event) {
         if (event.button == 0) {
             // console.log(JSON.stringify(event))
-            console.log(event.getPickedPosition())
-            if (event.getPickedPosition())
-                mousedownPos = event.getPickedPosition()
+            console.log(event.pickedPosition)
+            if (event.pickedPosition)
+                mousedownPos = event.pickedPosition
         } else if (event.button == 2) {
             console.log(JSON.stringify(event.object))
         }
@@ -309,7 +332,7 @@ app.on('load', function (ev) {
     // click时，小于4像素执行才执行
     app.on('click', function (event) {
         if (event.button == 0) {
-            if (event.getPickedPosition()) {
+            if (event.pickedPosition) {
                 linesArrayOne.forEach(function (obj) {
                     app.query("#" + obj.line)[0].visible = event.object.id == obj.start || event.object.id == obj.end || event.object.id == obj.line;
                 });
@@ -323,7 +346,8 @@ app.on('load', function (ev) {
     createSearchBox();
     invisibleLines();
 
-
+    //Custom code
+    initializeMapGraph();
 });
 
 var linesArrayOne = [
@@ -353,7 +377,7 @@ function invisibleLines() {
 function createSearchBox() {
     // 使用 bootstrap 样式
     var template =
-        `<div style="position:absolute;top:20px;left:50%;margin-left:-150px;z-index:2;padding: 4px 10px;background-color:rgba(219,245,255,0.4);"><input id="searchId" type="text" placeholder="请输入设备ID" style="width:220px;height:30px;border:1px solid #5af7fa;border-radius: 4px;background-color:rgba(0,92,85,0.9);color:#fff;padding:0 5px;"/><span onclick="searchEqById()" style="margin-left:6px;font-size:13px;color: #fff;cursor:pointer;">确定</span></div>`;
+        `<div style="position:absolute;top:20px;left:50%;margin-left:-150px;z-index:2;padding: 4px 10px;background-color:rgba(219,245,255,0.4);"><input id="searchId" type="text" placeholder="Search by device ID?" style="width:220px;height:30px;border:1px solid #5af7fa;border-radius: 4px;background-color:rgba(0,92,85,0.9);color:#fff;padding:0 5px;"/><span onclick="searchEqById()" style="margin-left:6px;font-size:13px;color: #fff;cursor:pointer;">Go</span></div>`;
     var btn = $('#div2d').append($(template));
     return btn;
 }
@@ -431,7 +455,7 @@ function addThings() {
         */
         // ev.object.position = ev.pickedPosition;
         if (ev.picked) {
-        var    worldPos = ev.getPickedPosition();
+        var    worldPos = ev.pickedPosition;
             // console.log(ev.pickedPosition);
         }
     });
@@ -526,6 +550,7 @@ function moveMan(dir, count) {
         thiz.position = [thiz.position[0], thiz.position[1], pos];
     }
     getPanl(thiz.position[0], thiz.position[2]);
+    navigate("001", "end_point");
 }
 
 function initLeveLis() {
@@ -600,4 +625,69 @@ function initLeveLis() {
 //     })
 //     app.addControl(ctrl);
 // }
+
+
+
+
+
+
+
+
+
+
+
+// TODO: implement
+let hideAllLines = () => {
+    console.log("All lines hidden");
+}
+
+// TODO: implement
+let showLine = (x1, y1, x2, y2) => {
+    console.log("Showing line from [" + x1 + ", " + y1 + "] to [" + x2 + ", " + y2 + "]");
+}
+
+let showPathLines = (path) => {
+    for (let index = 0; index < path.length - 1; index++) {
+        showLine(path[index].x, path[index].y, path[index + 1].x, path[index + 1].y);
+    }
+}
+
+let navigate = (startId, destinationId) => {
+    let startThing = app.query("#" + startId)[0];
+    let startNode = gMapGraph.getClosestNode(startThing.position[0], startThing.position[2]);
+    console.log("startNode: ", startNode);
+
+    let destinationThing = app.query("#" + destinationId)[0];
+    let destinationNode = gMapGraph.getClosestNode(destinationThing.position[0], destinationThing.position[2]);
+    console.log("destinationNode: ", destinationNode);
+
+    let shortestPath = gMapGraph.getShortestPath(startNode, destinationNode);
+    hideAllLines();
+    if (shortestPath !== undefined) {
+        showPathLines(shortestPath);
+    } else {
+        console.log("No possible path found from current location to destination");
+    }
+}
+
+/*** Test functions ***/
+
+let initializeMapGraph = () => {
+    gMapGraph.createAndAddNode(-16, -11);
+    gMapGraph.createAndAddNode(-18, -14);
+    gMapGraph.createAndAddNode(-20, -14);
+    gMapGraph.createAndAddNode(-22, -14);
+    gMapGraph.createAndAddNode(-24, -14);
+    gMapGraph.createAndAddNode(-25, -12);
+    gMapGraph.createAndAddNode(-27, -12);
+    gMapGraph.createAndAddNode(-28, -14);
+
+    gMapGraph.connectNodesById("0", "1");
+    gMapGraph.connectNodesById("1", "2");
+    gMapGraph.connectNodesById("2", "3");
+    gMapGraph.connectNodesById("3", "4");
+    gMapGraph.connectNodesById("4", "5");
+    gMapGraph.connectNodesById("5", "6");
+    gMapGraph.connectNodesById("6", "7");
+}
 
