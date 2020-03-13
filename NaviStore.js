@@ -365,8 +365,6 @@ app.on('load', function (ev) {
 
     hideAllLines();
 
-    destination = gMapGraph.getClosestNode(waypoints[6].position[0], waypoints[6].position[2]);
-
     updatePosition();
 });
 
