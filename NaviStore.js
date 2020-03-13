@@ -271,11 +271,6 @@ class GraphNode {
 var gMapGraph = new AStarGraph();
 
 
-
-
-
-
-
 /***********************************************************************************
 ******************************** Map Initialization ********************************
 ************************************************************************************/
@@ -283,7 +278,7 @@ var gMapGraph = new AStarGraph();
 //加载场景代码
 var app = new THING.App({
     // 场景地址
-    "url": "https://www.thingjs.com/client/ThingJS/28338/20190613114500011313150",
+    "url": "/api/scene/b0a1c1544fb5933252410fba",
     //背景设置
     "skyBox": "BlueSky"
 });
@@ -292,17 +287,22 @@ var app = new THING.App({
 var building = null;
 var mousedownPos = null;
 
-// var stag = document.createElement("script");
-// stag.src = "./PriorityQueue.js";
-// document.body.appendChild(stag);
+let person = app.query('person')[0];
 
-// // window.PriorityQueue;
-// console.log(window.PriorityQueue);
+let beacons = [];
+
+let waypoints = [];
+
+let lines = [];
+
+let position = {
+    x: 0,
+    y: 0,
+    orientation: 0
+}
+
 //===============点击进入=======================
 app.on('load', function (ev) {
-    // building = ev.buildings[0];
-    // var campus = ev.campus;
-    // app.level.change(campus);
     //设置初始视角
     app.camera.fit({
         object: building,
@@ -329,49 +329,65 @@ app.on('load', function (ev) {
             console.log(JSON.stringify(event.object))
         }
     });
-    // click时，小于4像素执行才执行
-    app.on('click', function (event) {
-        if (event.button == 0) {
-            if (event.pickedPosition) {
-                linesArrayOne.forEach(function (obj) {
-                    app.query("#" + obj.line)[0].visible = event.object.id == obj.start || event.object.id == obj.end || event.object.id == obj.line;
-                });
-            }
-        }
-    });
+    
     app.camera.enablePan
     // app.camera.enableRotate = false;
-    initLeveLis();
-    addThings();
+    
     createSearchBox();
-    invisibleLines();
+
+    person = app.query('person')[0];
+
+    person.visible = false
 
     //Custom code
+
+    beacons = app.query('beacon');
+
+    waypoints = app.query('waypoint');
+
+    for (let i = 0; i < beacons.length; i++) {
+        beacons[i].visible = false;
+    }
+
+    for (let i = 0; i < waypoints.length; i++) {
+        waypoints[i].visible = false;
+    }
+
+
+
     initializeMapGraph();
+
+
+    hideAllLines();
+
+
+    updatePosition();
 });
 
-var linesArrayOne = [
-    {
-        "line": "line_001",
-        "end": "end_point",
-        "start": "start_point"
-    }
-];
+let firstUpdate = true;
 
-function invisibleLines() {
-    linesArrayOne.forEach(function (obj) {
-        var line = app.query("#" + obj.line)[0];
-        var end = app.query("#" + obj.end)[0];
-        var start = app.query("#" + obj.start)[0];
-        line.style.color = "#ff0000"
-        line.visible = false;
-        start.on('click', function (ev) {
-            line.visible = true;
-        });
-        end.on('click', function (ev) {
-            line.visible = true;
-        });
-    });
+let updatePosition = () => {
+	$.ajax({
+		type: "get",
+		url: "http://3.209.66.199:3000/",
+        headers: { "Access-Control-Allow-Origin" : "*" },
+        crossDomain: true,
+		dataType: "json",
+		success: (d) => {
+            position = JSON.parse(d.position);
+
+            person.position = [position.x, 0, position.y];
+            
+            if (firstUpdate) {
+                firstUpdate = false;
+                person.visible = true
+            }
+
+			timer = setTimeout(() => {
+				updatePosition()
+			}, 1000);
+		}
+	});
 }
 
 function createSearchBox() {
@@ -381,6 +397,7 @@ function createSearchBox() {
     var btn = $('#div2d').append($(template));
     return btn;
 }
+
 function searchEqById() {
     var searchId = document.getElementById("searchId").value;
     if (searchId) {
@@ -390,6 +407,7 @@ function searchEqById() {
         alert("请先输入设备ID");
     }
 }
+
 function changeCampu(id) {
     var thing = app.query('#' + id)[0];
     if (thing) {
@@ -400,75 +418,7 @@ function changeCampu(id) {
 }
 
 
-new THING.widget.Button('进入建筑', function () {
-    var floor = app.query('.Floor')[0];
-    // var floor = app.query('#R001_001_047')[0];
-    app.level.change(floor);
-});
-
-new THING.widget.Button('退出建筑', function () {
-    var floor = app.query('.Campus')[0];
-    app.level.change(floor);
-});
-
-new THING.widget.Button('复原', function () {
-    thiz.position = [-23.224302400141845, -0.09000000000000137, -12.96061607015777]
-});
-
-new THING.widget.Button('左移', function () { moveMan(0, 1); console.log(window.PriorityQueue);});
-new THING.widget.Button('右移', function () { moveMan(1, 1) });
-new THING.widget.Button('前移', function () { moveMan(2, 1) });
-new THING.widget.Button('后移', function () { moveMan(3, 1) });
-// new THING.widget.Button('开启第一人称行走', ownWalk);
-// new THING.widget.Button('关闭第一人称行走', closeWalk);
-
-var thiz = null;
-function addThings() {
-    thiz = app.query('#001')[0]
-
-    // app.camera.viewMode = THING.CameraView.TopView;
-    // console.log('thing created: ' + this.id);
-    // this.scale = [7, 9, 7];
-    thiz.style.color = "#ff0000";
-    // this.scaleTo({
-    //     scale: [1.5, 1.5, 1.5], // 缩放倍数
-    //     time: 2500, // 动画时间
-    //     loopType: THING.LoopType.PingPong // 循环类型 设置循环后 无回调函数
-    // })
-    thiz.draggable = true;
-    // 拖拽结束
-    thiz.on('dragend', function (ev) {
-        app.camera.fit({
-            object: thiz,
-            radius: 10,
-            xAngle: 90, // 绕物体自身X轴旋转角度
-            yAngle: 10, // 绕物体自身Y轴旋转角度
-        })
-        getPanl(thiz.position[0], thiz.position[2]);
-    });
-
-    // 拖拽中
-    thiz.on('drag', function (ev) {
-        /* drag的两个参数:
-            ev.object	        当前拾取物体,类型:BaseObject
-            ev.pickedPosition	获取拾取点坐标,类型:Array.[Number]
-        */
-        // ev.object.position = ev.pickedPosition;
-        if (ev.picked) {
-        var    worldPos = ev.pickedPosition;
-            // console.log(ev.pickedPosition);
-        }
-    });
-
-    // thiz.on('update', function () {
-    //     thiz.style.opacity = 0.5 + 0.5 * Math.sin(2 * app.elapsedTime / 1000);
-    // }, '每帧改变透明度');
-    thiz.scaleTo({
-        scale: [1.1, 1.1, 1.1], // 缩放倍数
-        time: 2500, // 动画时间
-        loopType: THING.LoopType.PingPong // 循环类型 设置循环后 无回调函数
-    })
-}
+new THING.widget.Button('Scan', function () { moveMan(0, 1); console.log("TODO: SCAN");});
 
 var things = [
     { "type": "Thing", "id": "box_001", "name": "box_001", "position": [-16.534, -0.09000000000000001, -13.913], "angles": [0, 0.11459163542067485, 0], "scale": [1, 1, 1], "style": { "color": null, "opacity": 1, "outlineColor": "#FF8000", "alwaysOnTop": false, "glow": false, "innerGlow": false } },
@@ -489,7 +439,6 @@ function getPanl(x, y) {
         }
     })
 }
-
 
 function destoryAnchor() {
     uia.forEach(function (obj) {
@@ -534,116 +483,17 @@ function createUIAnchor(id) {
     return uiAnchor;
 }
 
-//左 右 上 下
-function moveMan(dir, count) {
-    if (0 == dir) {
-        var pos = thiz.position[0] += 1
-        thiz.position = [pos, thiz.position[1], thiz.position[2]];
-    } else if (1 == dir) {
-        var pos = thiz.position[0] -= 1
-        thiz.position = [pos, thiz.position[1], thiz.position[2]];
-    } else if (2 == dir) {
-        var pos = thiz.position[2] += 1
-        thiz.position = [thiz.position[0], thiz.position[1], pos];
-    } else if (3 == dir) {
-        var pos = thiz.position[2] -= 1
-        thiz.position = [thiz.position[0], thiz.position[1], pos];
-    }
-    getPanl(thiz.position[0], thiz.position[2]);
-    navigate("001", "end_point");
-}
-
-function initLeveLis() {
-    // 监听建筑层级的 EnterLevel 事件
-    app.on(THING.EventType.EnterLevel, ".Building", function (ev) {
-        // 当前进入的层级对象
-        var current = ev.current;
-        // 上一层级对象
-        var preObject = ev.previous;
-        // 如果当前层级对象的父亲是上一层级对象（即正向进入）
-        if (current.parent == preObject) {
-            if (preObject.type == "Campus") {
-                // particle.visible = false
-                // 暂停系统内置的左键双击进入下一层级操作
-                app.pauseEvent(THING.EventType.DBLClick, '*', THING.EventTag.LevelEnterOperation);
-                // 暂停系统内置的右键单击返回上一层级操作
-                app.pauseEvent(THING.EventType.Click, '*', THING.EventTag.LevelBackOperation);
-                app.camera.enablePan = true
-            }
-
-            console.log("从 " + preObject.type + " 进入了 " + current.type);
-        }
-        else {
-            console.log("进入 " + current.type + "（从 " + preObject.type + " 退出）");
-        }
-    });
-    // [0.8419063091281049, 0.009999999999999919, 0.17960312300051479]
-    // 监听建筑层级的 LeaveLevel 事件
-    app.on(THING.EventType.LeaveLevel, ".Building", function (ev) {
-        // 要进入的层级对象
-        var current = ev.current;
-        // 上一层级对象（退出的层级）
-        var preObject = ev.previous;
-        console.log("THING.EventType.EnterLevel:" + JSON.stringify(current));
-        if (current.parent === preObject) {
-            console.log("退出 " + preObject.type + " 进入 " + current.type);
-        }
-        else {
-            console.log("退出 " + preObject.type + " ，返回 " + current.type);
-            // particle.visible = true
-            app.camera.enablePan = false
-            // 暂停系统内置的左键双击进入下一层级操作
-            app.resumeEvent(THING.EventType.DBLClick, '*', THING.EventTag.LevelEnterOperation);
-            // 暂停系统内置的右键单击返回上一层级操作
-            app.resumeEvent(THING.EventType.Click, '*', THING.EventTag.LevelBackOperation);
-        }
-    })
-}
-
-// var ctrl
-
-// function closeWalk() {
-//     if (ctrl) {
-//         app.removeControl(ctrl);
-//         ctrl = null;
-//     }
-// }
-
-// function ownWalk() {
-//     if (ctrl) return
-//     app.camera.position = [-24.524007536596862,-0.0899999999999995,-13.372722742690318];
-//     ctrl = new THING.WalkControl({ // 参数可以动态修改
-//         walkSpeed: 0.04, // 行走速度
-//         // walkSpeed: 1, // 行走速度
-//         turnSpeed: 0.15, // 右键旋转速度
-//         gravity: 29.8, // 物体重量
-//         eyeHeight: 1.6, // 人高度
-//         jumpSpeed: 4, // 按空格键 跳跃的速度
-//         enableKeyRotate: false, // 默认不开启键盘控制旋转
-//         useCollision: true, // 默认不开启碰撞检测
-//         useGravity: true // 默认开启重力
-//     })
-//     app.addControl(ctrl);
-// }
-
-
-
-
-
-
-
-
-
-
-
-// TODO: implement
 let hideAllLines = () => {
-    console.log("All lines hidden");
+    for (let i = 0; i < lines.length; i++) {
+        lines[i].line.visible = false;
+    }
 }
 
-// TODO: implement
-let showLine = (x1, y1, x2, y2) => {
-    console.log("Showing line from [" + x1 + ", " + y1 + "] to [" + x2 + ", " + y2 + "]");
+let showLine = (p1x, p1y, p2x, p2y) => {
+    for (let i = 0; i < lines.length; i++) {
+        let l = lines[i];
+        if ((p1x === l.x1 && p1y === l.y1 && p2x === l.x2 && p2y === l.y2) || (p2x === l.x1 && p2y === l.y1 && p1x === l.x2 && p1y === l.y2)) l.visible = true;        
+    }
 }
 
 let showPathLines = (path) => {
@@ -673,21 +523,58 @@ let navigate = (startId, destinationId) => {
 /*** Test functions ***/
 
 let initializeMapGraph = () => {
-    gMapGraph.createAndAddNode(-16, -11);
-    gMapGraph.createAndAddNode(-18, -14);
-    gMapGraph.createAndAddNode(-20, -14);
-    gMapGraph.createAndAddNode(-22, -14);
-    gMapGraph.createAndAddNode(-24, -14);
-    gMapGraph.createAndAddNode(-25, -12);
-    gMapGraph.createAndAddNode(-27, -12);
-    gMapGraph.createAndAddNode(-28, -14);
+    for (let i = 0; i < waypoints.length; i++) {
+        let pos = waypoints[i].position;
+        gMapGraph.createAndAddNode(pos[0], pos[2], waypoints[i]._id);
+    }
 
-    gMapGraph.connectNodesById("0", "1");
-    gMapGraph.connectNodesById("1", "2");
-    gMapGraph.connectNodesById("2", "3");
-    gMapGraph.connectNodesById("3", "4");
-    gMapGraph.connectNodesById("4", "5");
-    gMapGraph.connectNodesById("5", "6");
-    gMapGraph.connectNodesById("6", "7");
+    for (let i = 0; i < waypoints.length; i++) {
+        let neighbours = waypoints[i]._userData.neighbour.split(',');
+        
+        for (let j = 0; j < neighbours.length; j++) {
+            gMapGraph.connectNodesById(waypoints[i]._id, "w" + neighbours[j]);
+            let pos1 = waypoints[i].position;
+            let pos2 = app.query('#w' + neighbours[j])[0].position;
+            drawLine(pos1[0], pos1[2], pos2[0], pos2[2]);
+        }
+    }
 }
 
+let drawLine = (p1x, p1y, p2x, p2y) => {
+    if (p1x === undefined || p1y === undefined || p2x === undefined || p2y === undefined) return;
+
+    for (let i = 0; i < lines.length; i++) {
+        let l = lines[i];
+        if ((p1x === l.x1 && p1y === l.y1 && p2x === l.x2 && p2y === l.y2) || (p2x === l.x1 && p2y === l.y1 && p1x === l.x2 && p1y === l.y2)) return;
+    }
+
+    const dx = p1x - p2x;
+    const dy = p1y - p2y;
+
+    const magnitude = Math.sqrt(dx*dx + dy*dy);
+    
+    const midx = (p1x + p2x) / 2;
+    const midy = (p1y + p2y) / 2;
+
+    const angle = Math.round(Math.atan2(dy, dx) * 180 / Math.PI);
+
+    const line_obj = app.create({
+        type: 'Cylinder',
+        radius: 0.1,
+        height: magnitude,
+        radiusSegments: 8,
+        position:[midx, 1, midy],
+        angles: [90, 0, angle + 90],
+        color: "red"
+    });
+
+    const line = {
+        x1: p1x,
+        y1: p1y,
+        x2: p2x,
+        y2: p2y,
+        line: line_obj
+    };
+
+    lines.push(line);
+}
