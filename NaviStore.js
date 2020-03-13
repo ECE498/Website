@@ -210,7 +210,7 @@ class AStarGraph {
       let distance;
       for (let id of Object.keys(this.nodes)) {
         distance = getDistance(node, this.nodes[id]);
-        console.log("distance: ", distance);
+        // console.log("distance: ", distance);
         if (distance < shortestDistance) {
             closestNodeId = id;
             shortestDistance = distance;
@@ -295,11 +295,18 @@ let waypoints = [];
 
 let lines = [];
 
+let short_path = null;
+
 let position = {
     x: 0,
     y: 0,
     orientation: 0
 }
+
+let destination = null;
+let source = null;
+
+let popups = [];
 
 //===============点击进入=======================
 app.on('load', function (ev) {
@@ -346,6 +353,7 @@ app.on('load', function (ev) {
     waypoints = app.query('waypoint');
 
     for (let i = 0; i < beacons.length; i++) {
+        popups[i] = createUIAnchor(beacons[i]._id);
         beacons[i].visible = false;
     }
 
@@ -353,41 +361,46 @@ app.on('load', function (ev) {
         waypoints[i].visible = false;
     }
 
-
-
     initializeMapGraph();
 
-
     hideAllLines();
-
 
     updatePosition();
 });
 
 let firstUpdate = true;
 
+const offset = 360 - 90;
+
 let updatePosition = () => {
-	$.ajax({
-		type: "get",
-		url: "http://3.209.66.199:3000/",
+  $.ajax({
+    type: "get",
+    url: "http://3.209.66.199:3000/",
         headers: { "Access-Control-Allow-Origin" : "*" },
         crossDomain: true,
-		dataType: "json",
-		success: (d) => {
+    dataType: "json",
+    success: (d) => {
             position = JSON.parse(d.position);
 
             person.position = [position.x, 0, position.y];
+            person.angles = [0, offset - position.orientation, 0];
+
+            source = gMapGraph.getClosestNode(position.x, position.y);
             
             if (firstUpdate) {
                 firstUpdate = false;
                 person.visible = true
             }
 
-			timer = setTimeout(() => {
-				updatePosition()
-			}, 1000);
-		}
-	});
+            short_path = gMapGraph.getShortestPath(source, destination);
+            hideAllLines();
+            showPathLines(short_path);
+
+      timer = setTimeout(() => {
+        updatePosition()
+      }, 1000);
+    }
+  });
 }
 
 function createSearchBox() {
@@ -418,7 +431,7 @@ function changeCampu(id) {
 }
 
 
-new THING.widget.Button('Scan', function () { moveMan(0, 1); console.log("TODO: SCAN");});
+new THING.widget.Button('Scan', function () { scan() });
 
 var things = [
     { "type": "Thing", "id": "box_001", "name": "box_001", "position": [-16.534, -0.09000000000000001, -13.913], "angles": [0, 0.11459163542067485, 0], "scale": [1, 1, 1], "style": { "color": null, "opacity": 1, "outlineColor": "#FF8000", "alwaysOnTop": false, "glow": false, "innerGlow": false } },
@@ -447,6 +460,169 @@ function destoryAnchor() {
     uia.length = 0;
 }
 
+let ob = {
+    b0: {
+        group: '1',
+        name: 'Goldilocks',
+        abstract: `growing share of consumer electronics sales are being 
+conducted online. However, comparing products across 
+different online retailers can be difficult. The objective 
+of this project is to consolidate information across major 
+retailers into one platform, making online shopping 
+simpler and saving time, money, and effort. The benefit  
+of this project is that it puts an emphasis on comparison  
+of similar products within the same electronics category  
+so as to allow consumers to shop for electronics when they 
+are undecided on a particular product.`
+    },
+    b1: {
+        group: '2',
+        name: 'EyeGuide',
+        abstract: `500,000 Canadians are estimated to be affected by sight 
+loss, and have difficulty navigating unfamiliar spaces. The 
+objective of EyeGuide is to attach an embedded device 
+onto a traditional white cane. This system is responsible 
+for detecting and identifying nearby objects, providing 
+navigation assistance and providing location sharing. 
+The main advantage of EyeGuide is that it provides more 
+information to the blind than the traditional white cane 
+and does not require training unlike guide dogs.`
+    },
+    b2: {
+        group: '3',
+        name: 'Tutorr',
+        abstract: `Market research has shown a rising demand in tutoring 
+services as the percentage of students meeting provincial 
+standards continue to decrease year-by-year. To address this, 
+a crowd-sourced platform for private tutoring services that 
+promotes personal engagement and immediate feedback 
+has been created. With Tutorr, students are matched with 
+mentors within their geographical location that possess 
+relevant subject expertise, and a full-scale application 
+integrated with payment services and live-chat is used  
+to facilitate this experience seamlessly and efficiently.`
+    },
+    b3: {
+        group: '4',
+        name: 'Dallo',
+        abstract: `Charities often receive donated items that they cannot use, 
+and disposing of these items diverts time and money from 
+the organization’s main focus. The Dallo application reduces 
+the number of unwanted donations by matching users with 
+items to donate with the local charities that need them the 
+most. This allows users to efficiently find good homes for 
+their items while giving visibility to lesser-known charities.`
+    },
+    b4: {
+        group: '5',
+        name: 'ReceiptIt',
+        abstract: `ReceiptIt is a digital bookkeeping application which 
+recognizes essential texts from receipt images and 
+provides interactive expense management experience 
+via personalized expenditure reports and comparison 
+functionalities. The major advantage of this design over 
+other alternatives is that the tedious aspects of organizing 
+receipts and inputting data manually have been automated 
+and users will have a better overview of their expenses via 
+personalized reports and expense comparisons`
+    },
+    b5: {
+        group: '6',
+        name: 'Mira',
+        abstract: `Everybody has their morning routine – from personal 
+grooming and catching up with emails, to reading up on 
+social media. Mira is a smart mirror that simplifies the 
+daily process by integrating these common activities into a 
+household item. The physical device comes bundled with 
+an ecosystem that allows the user to customize their mirror 
+by downloading and configuring widgets from an online 
+marketplace. A platform will also be included to allow 
+developers to take advantage of the in-built sensors and 
+build their own widgets. `
+    },
+    b6: {
+        group: '7',
+        name: 'Locus',
+        abstract: `Currently, there are no mobile applications that focus on 
+improving communication between roommates. As such, 
+students have to deal with the varying idiosyncrasies of new 
+roommates each term. Verbal agreements regarding house 
+rules and chores are often difficult to maintain, causing 
+arguments and conflicts. The objective of this project is to 
+design an app that can integrate collaboration and planning 
+tools to facilitate sharing a communal living environment. 
+This will provide users with a streamlined approach to make 
+their shared home more comfortable and enjoyable`
+    },
+    b7: {
+        group: '8',
+        name: 'BBAS',
+        abstract: `BBAS is an integrated system built on bicycle brakes, and 
+it can provide the speed control to the bike as the bike 
+speeding up while going down a ramp or unintentional 
+high-speed riding. This system can prevent potential 
+injuries from happening by limiting the speed. The BBAS 
+is developed with a variety of theories, including control 
+theory, embedded system design and mechanical knowledge. 
+The main advantage of the BBAS is to leave the rider with 
+more time of reaction as unexpected obstacles come up`
+    },
+    b8: {
+        group: '9',
+        name: 'Brazo',
+        abstract: `Brazo is a smart testing platform that can automatically 
+record test flows and replay the motions to physically 
+test various mobile devices. Computer vision and image 
+processing are used to interpret the users’ interactions with 
+the device, which is translated to executable sequences for the 
+robotic arm control system to be used for verification. Brazo 
+can save time and costs in development teams by providing 
+real-time and detailed UI feedback during testing across 
+multiple devices, where mobile farms or other software-based 
+automation are inherently limited.`
+    },
+    b9: {
+        group: '10',
+        name: 'CAL',
+        abstract: `When renting or sharing access to a residence, handling 
+keys can be challenging. Timing and security of physical 
+transfers can be difficult to arrange, and keypad codes can be 
+compromised. This project’s goal is to design an accessible-
+anywhere system for digital sharing and revocation of keys. 
+A user can access a lock via wireless authentication; key 
+sharing permissions are hierarchical. The design’s value  
+is in the ability to instantly and remotely grant and revoke 
+access, without requiring physical transfers or changing a 
+lock or code.`
+    },
+    b10: {
+        group: '11',
+        name: 'TexTure',
+        abstract: `There is a growing demand for digital note-taking, but 
+existing products are expensive and do not provide the 
+same haptic experience as paper. These barriers discourage 
+people who want to transition their note-taking experience 
+to a digital space. This project aims to solve this challenge 
+by designing a tablet that integrates electrovibration-based 
+haptic feedback along with the ability to capture visual 
+and audio data. The advantage of TexTure over existing 
+alternatives is that it provides realistic haptic feedback  
+to the user at an affordable price. `
+    },
+    b11: {
+        group: '12',
+        name: 'Polyphonic Pagination',
+        abstract: `Polyphonic Pagination is a convenient enhancement to 
+digital sheet music. The application displays a PDF of sheet 
+music and monitors the performer’s progress through 
+the piece, interpreting each note being played through 
+statistical pattern matching. This allows the application to 
+turn the pages at the appropriate time, without musician 
+intervention. Unlike other automatic page turners, it 
+requires no instrument training, and can correctly predict  
+a user’s progress when experiencing disruptions in play.`
+    }
+}
 
 // 创建UIAnchor
 function createUIAnchor(id) {
@@ -454,17 +630,16 @@ function createUIAnchor(id) {
     // 创建widget (绑定数据用)
     var panel = new THING.widget.Panel({
         // 设置面板宽度
-        width: '150px',
+        width: '200px',
         // cornerType 角标样式
         // 没有角标 none ，没有线的角标 noline ，折线角标 polyline
         cornerType: 'polyline'
     })
-    console.log(obj.getAttribute('name'));
-    panel.addString(obj, 'id').caption('id');
+
+    panel.addString(ob[id], 'group').caption('Group');
     // panel.addString(obj.userData, 'name').caption('name');
     // panel.addString(obj.userData, 'desc').caption('desc');
-    panel.addString(obj, 'name').caption('name');
-    console.log(JSON.stringify(obj));
+    panel.addString(ob[id], 'abstract').caption('Abstract');
 
     // 创建UIAnchor面板
     var uiAnchor = app.create({
@@ -492,7 +667,7 @@ let hideAllLines = () => {
 let showLine = (p1x, p1y, p2x, p2y) => {
     for (let i = 0; i < lines.length; i++) {
         let l = lines[i];
-        if ((p1x === l.x1 && p1y === l.y1 && p2x === l.x2 && p2y === l.y2) || (p2x === l.x1 && p2y === l.y1 && p1x === l.x2 && p1y === l.y2)) l.visible = true;        
+        if ((p1x === l.x1 && p1y === l.y1 && p2x === l.x2 && p2y === l.y2) || (p2x === l.x1 && p2y === l.y1 && p1x === l.x2 && p1y === l.y2)) l.line.visible = true;        
     }
 }
 
@@ -578,3 +753,9 @@ let drawLine = (p1x, p1y, p2x, p2y) => {
 
     lines.push(line);
 }
+
+let scan = () => {
+    for (let i = 0; i < popups.length; i++) {
+        popups[i].visible = true;
+    }
+};
